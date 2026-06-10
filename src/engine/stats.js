@@ -1,5 +1,5 @@
 // ============================================================
-// Die Up — Stats (PRD §8). Pure derivation from final game state.
+// Die Up — Stats (§8). Pure derivation from final game state.
 // ============================================================
 import { THROW_OUTCOMES } from './config.js';
 
@@ -25,10 +25,9 @@ export function computePlayerStats(state, team, playerIndex) {
   const defenseLogged = catches + drops > 0;
 
   const red = state.redemptionResult;
-  const redemptionPoints =
-    red && red.team === team ? red.pointsByPlayer[playerIndex] : 0;
-  const redemptionMisses =
-    red && red.team === team ? red.missesByPlayer[playerIndex] : 0;
+  const redStats = red?.stats?.[team];
+  const redemptionPoints = redStats ? redStats.points[playerIndex] : 0;
+  const redemptionMisses = redStats ? redStats.misses[playerIndex] : 0;
 
   return {
     team,
@@ -41,13 +40,14 @@ export function computePlayerStats(state, team, playerIndex) {
     shortRate: pct(throws.filter((t) => t.outcome === 'short').length, throws.length),
     heightCount: throws.filter((t) => t.outcome === 'height').length,
     missCount: throws.filter((t) => t.outcome === 'miss').length,
+    caughtCount: throws.filter((t) => t.outcome === 'caught').length,
     cupCount: live.filter((t) => t.outcome === 'cup').length,
     sinkCount: live.filter((t) => t.outcome === 'sink').length,
     longestStreak,
     selfSink: throws.some((t) => t.outcome === 'selfSink'),
     catches,
     drops,
-    // PRD: if no catch/drop logged the entire game → "N/A", never 0%
+    // if no catch/drop logged the entire game → "N/A", never 0%
     catchRatio: defenseLogged ? pct(catches, catches + drops) : null,
     redemptionPoints,
     redemptionMisses,
@@ -64,17 +64,20 @@ export function computeAllStats(state) {
   return all;
 }
 
-// Comeback Carry (PRD §8): majority of points during a *successful*
-// comeback redemption AND a minimum of 3+ points scored in redemption.
+// Comeback Carry (§8): majority of points during a *successful* comeback
+// redemption (the originally-trailing team won) AND a minimum of 3+ pts.
 export function comebackCarrier(state, minPoints = 3) {
   const red = state.redemptionResult;
   if (!red || !red.succeeded) return null;
-  if (state.winner !== red.team) return null; // comeback must succeed (win)
-  const total = red.pointsByPlayer[0] + red.pointsByPlayer[1];
+  const team = red.originalTrailing;
+  if (state.winner !== team) return null;
+  const pts = red.stats?.[team]?.points;
+  if (!pts) return null;
+  const total = pts[0] + pts[1];
   if (total <= 0) return null;
-  const topIdx = red.pointsByPlayer[0] >= red.pointsByPlayer[1] ? 0 : 1;
-  const topPts = red.pointsByPlayer[topIdx];
+  const topIdx = pts[0] >= pts[1] ? 0 : 1;
+  const topPts = pts[topIdx];
   if (topPts < minPoints) return null;
   if (topPts * 2 <= total) return null; // strict majority
-  return { team: red.team, playerIndex: topIdx };
+  return { team, playerIndex: topIdx };
 }

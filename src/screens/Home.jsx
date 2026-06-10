@@ -10,12 +10,12 @@ export function Home() {
 
   return (
     <Shell>
-      <div className="flex-1 flex flex-col items-center justify-center gap-2">
-        <div className="font-display text-7xl text-gold leading-none -skew-x-6">DIE</div>
-        <div className="font-display text-7xl text-white leading-none -skew-x-6">UP</div>
-        <div className="font-body text-white/50 mt-3 text-sm">beer die, tracked live</div>
+      <div className="flex-1 flex flex-col items-center justify-center gap-1">
+        <div className="text-3d text-8xl leading-[0.82]">DIE</div>
+        <div className="text-3d-light text-8xl leading-[0.82]">UP</div>
+        <div className="font-body text-white/45 mt-5 text-sm tracking-wide">beer die, tracked live</div>
       </div>
-      <div className="pb-10 px-6 flex flex-col gap-3">
+      <div className="pb-5 px-6 flex flex-col gap-3">
         {asking ? (
           <>
             <input
@@ -41,7 +41,21 @@ export function Home() {
           </p>
         )}
       </div>
+      <SevCredit />
     </Shell>
+  );
+}
+
+// §7 — small but noticeable home-screen credit.
+function SevCredit() {
+  return (
+    <div className="pb-6 text-center select-none">
+      <span className="font-body text-[11px] uppercase tracking-[.32em] text-white/35">
+        a{' '}
+        <span className="text-white/70 font-semibold">Sev&nbsp;Harrington</span>
+        {' '}production
+      </span>
+    </div>
   );
 }
 

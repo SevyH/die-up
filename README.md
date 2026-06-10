@@ -86,20 +86,35 @@ These weren't fully specified; each is implemented one way and trivially changea
    `engine.js` if you want a flat 1.
 2. **Height vs hit rate** — a height call is treated as *not* hitting the table
    (it's a fault). Flip `hitsTable` in `THROW_OUTCOMES` to change.
-3. **"Continue with [next player]?" during redemption** — interpreted as: when
-   the trailing team ties/surpasses, they choose to keep throwing (Yes) or bank
-   it and resume normal play (No). This mirrors the game-point semantics.
-4. **End Game confirmation declined** — PRD only specifies Confirm. A "Keep
-   playing" option switches possession and continues the game.
-5. **Switch Possession / End Game confirm** — PRD lists both screens as seen by
-   both phones; either phone's tap confirms.
+3. **Redemption is a win-by-two ping-pong shootout (V1 rewrite).** The shooting
+   team is always the side trying to overcome a deficit. They shoot until they
+   surpass the opponent (turn flips — the opponent must now answer) or fall
+   short. The game ends only when one team leads by 2 **and** the trailing team
+   finishes a turn without catching up. Game Point and Redemption share one
+   engine path: the `continuePrompt` + `continueAnswer` events, so "Continue
+   with [player]?" behaves identically in both. The ambiguity resolved here was
+   *who shoots and when it ends* — modeled strictly as "trailing team chases,
+   win-by-two closes it." See `engine.js` → `startRedemption` / `redemptionTurnover`.
+4. **"Continue with [player]?" prompt triggers** — fires (a) at game point after
+   P1 crosses the line, (b) in shootout when the shooting team is exactly one
+   below the opponent (striking distance, `redemptionStrike`), and (c) after a
+   shootout miss to send up the next shooter (`redemptionMiss`). All three are
+   the same prompt with Yes = continue, No = turn it over.
+5. **No manual End Game.** Per §3 the game ends purely by math — there is no
+   end-game button or confirm phase. The only interruptions are "Continue with
+   [player]?" and the Begin-Redemption mode selector.
 6. **FIFA attribution** — points go to the defending *team* (the PRD's FIFA
    button isn't per-player), so FIFA doesn't count toward an individual's
    "points contributed."
-7. **A caught throw during redemption** counts as a miss (Shootout) / ends the
-   attempt (Pong).
-8. **Title fallback** — if a player matches nothing, they get "Ole Reliable."
-   Full priority order is documented in `titles.js`.
+7. **A caught throw during redemption** counts as a miss (Shootout → next-player
+   prompt) / ends the turn (Pong). "Caught" is logged on the throwing screen
+   (§1) and nullifies the throw with 0 points.
+8. **Titles are earned-only (§8 rewrite).** MVP is always assigned (one per
+   game, either team; tiebreak points → hit rate → score rate → catch ratio).
+   Absolute Ass is forced on any self-sink. Team Carry sits on the *opposite*
+   team from MVP and only lands on a genuine carry — otherwise it's skipped. No
+   title is forced as a fallback, so a player can finish untitled, and no two
+   players ever share a title. Order/thresholds live in `titles.js` / `config.js`.
 9. **Comeback win line ("4+ pt comeback")** — defined as: the winning team
    trailed by 4+ at some point in the game (`maxDeficit`).
 

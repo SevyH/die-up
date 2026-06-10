@@ -81,20 +81,23 @@ export function DrumWheel({ options, value, onChange, render = (v) => String(v) 
 
 // ---------- Scoreboard ----------
 export function Scoreboard({ state, highlight }) {
-  const Team = ({ id }) => (
-    <div className={`flex-1 text-center py-3 rounded-xl ${highlight === id ? 'bg-navy-card' : ''}`}>
-      <div className="text-white/60 text-xs font-body font-semibold uppercase tracking-widest truncate px-1">
-        {state.teams[id].name}
+  const Team = ({ id }) => {
+    const live = state.possession === id;
+    return (
+      <div className={`flex-1 text-center py-2.5 rounded-xl transition-colors ${highlight === id ? 'bg-navy-card' : ''}`}>
+        <div className={`text-[11px] font-body font-bold uppercase tracking-[.18em] truncate px-1 ${live ? 'text-gold/80' : 'text-white/50'}`}>
+          {state.teams[id].name}
+        </div>
+        <div className={`text-6xl leading-none mt-0.5 select-none ${live ? 'text-3d' : 'text-3d-light text-3d-sm'}`}>
+          {state.scores[id]}
+        </div>
       </div>
-      <div className={`font-display text-5xl ${state.possession === id ? 'text-gold' : 'text-white'}`}>
-        {state.scores[id]}
-      </div>
-    </div>
-  );
+    );
+  };
   return (
-    <div className="flex items-center gap-2 px-3 pt-3">
+    <div className="flex items-stretch gap-2 px-3 pt-3">
       <Team id="A" />
-      <div className="font-display text-white/30 text-xl">–</div>
+      <div className="self-center font-hero italic text-white/25 text-2xl pb-2">–</div>
       <Team id="B" />
     </div>
   );

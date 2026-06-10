@@ -4,21 +4,28 @@
 // Design notes
 // - State is plain JSON (survives Firebase round-trips intact).
 // - Every throw lives in state.throwLog; the current round holds
-//   *indices* into that log, so a Catch can retroactively nullify
-//   a score without fragile object references.
+//   *indices* into that log.
 // - Undo replays the event log minus the last event.
 // - All point values / thresholds come from config (tunable).
+//
+// V1 redemption is a full win-by-two ping-pong shootout. The
+// "Continue with [player]?" prompt and Game Point share ONE engine
+// path (continuePrompt + continueAnswer). See README §"Redemption".
 // ============================================================
 import { THROW_OUTCOMES } from './config.js';
 
 // ---------- phases ----------
 // play                 throwing/defending screens live
 // dieBack              both throws scored, awaiting ✓/X on throwing phone
-// continuePrompt       win/tie reached mid-round: "Continue with [P]?"
+// continuePrompt       "Continue with [player]?" (game point OR redemption)
 // switch               full-screen possession-change confirm
-// endGameConfirm       winning score logged → confirm prompt
-// redemptionModeSelect creator picks Shootout / Pong
+// redemptionModeSelect creator picks Shootout / Pong ("Begin Redemption")
 // gameOver             win screen → podium
+//
+// continuePrompt kinds (s.pendingContinue.kind):
+//   gamePoint         a team met the win threshold on P1's throw
+//   redemptionStrike  shooting team reached one below the opponent (striking distance)
+//   redemptionMiss    a shootout shooter missed → continue with next player?
 
 export const other = (t) => (t === 'A' ? 'B' : 'A');
 
@@ -30,8 +37,10 @@ export function initialState({ config, teams, firstPossession }) {
     possession: firstPossession,             // 'A' | 'B'
     phase: 'play',
     round: { throwerIndex: 0, throwIds: [] },
+    pendingContinue: null,                   // { kind, ... } when phase === continuePrompt
     inRedemption: false,
-    redemption: null,
+    redemption: null,                        // live redemption turn state
+    redemptionStats: null,                   // { A:{points:[],misses:[]}, B:{...} }
     redemptionResult: null,                  // kept after redemption resolves
     maxDeficit: { A: 0, B: 0 },
     lastScorer: null,                        // { team, playerIndex } — "The Closer"
@@ -39,7 +48,7 @@ export function initialState({ config, teams, firstPossession }) {
     endedBySelfSink: null,                   // { team, playerIndex } | null
     fx: null,                                // { id, type, payload } animation bus
     throwLog: [],                            // every throw, final truth for stats
-    defenseLog: [],                          // { team, playerIndex, kind }
+    defenseLog: [],                          // { team, playerIndex, kind } (FIFA-era; usually empty in V1)
     teamPointsLog: [],                       // FIFA / house-rule team awards
     log: [],                                 // raw event log (undo)
   };
@@ -76,8 +85,8 @@ function addPoints(s, team, points, playerIndex = null) {
   if (!points || points <= 0) return;
   s.scores[team] += points;
   if (playerIndex !== null) s.lastScorer = { team, playerIndex };
-  if (s.inRedemption && team === s.redemption.team && playerIndex !== null) {
-    s.redemption.pointsByPlayer[playerIndex] += points;
+  if (s.inRedemption && playerIndex !== null && s.redemptionStats?.[team]) {
+    s.redemptionStats[team].points[playerIndex] += points;
   }
   updateDeficits(s);
 }
@@ -93,20 +102,33 @@ function endGame(s, winner, selfSinkInfo = null) {
   s.winner = winner;
   s.endedBySelfSink = selfSinkInfo;
   s.phase = 'gameOver';
+  s.pendingContinue = null;
   fx(s, 'win', { winner });
 }
 
+// triggerWin: a team has met the win threshold. With redemption on (and
+// not already resolved), hand the trailing team their shootout; otherwise
+// end the game. Single source of truth for "the math says someone won".
+function triggerWin(s) {
+  const leader = leaderMeetingWin(s);
+  if (!leader) return false;
+  if (s.config.redemption && !s.redemptionResult) {
+    startRedemption(s, leader);
+    return true;
+  }
+  endGame(s, leader);
+  return true;
+}
+
 // ============================================================
-// Round / possession flow
+// Round / possession flow (normal play)
 // ============================================================
 function roundThrows(s) {
   return s.round.throwIds.map((i) => s.throwLog[i]);
 }
 
 function goToSwitchOrEnd(s) {
-  // A team's turn just ended. If anyone now meets the win condition,
-  // surface the End Game confirmation (PRD 7.10); otherwise switch.
-  if (leaderMeetingWin(s)) { s.phase = 'endGameConfirm'; return; }
+  if (triggerWin(s)) return;
   s.phase = 'switch';
 }
 
@@ -120,7 +142,7 @@ function confirmSwitch(s) {
 function finishRound(s) {
   const live = roundThrows(s).filter((t) => !t.nullified);
   const scoring = live.filter((t) => t.scores);
-  // Die Back ALWAYS surfaces if both throws score — no exceptions (PRD §4).
+  // Die Back ALWAYS surfaces if both throws score — no exceptions.
   if (live.length >= 2 && scoring.length >= 2) {
     s.phase = 'dieBack';
     fx(s, 'dieBack');
@@ -153,8 +175,8 @@ function applyThrow(s, ev) {
     recordThrow(s, team, playerIndex, key, 0, false);
     fx(s, 'selfSink', { team, playerIndex });
     if (s.inRedemption) {
-      // "Self sink during redemption → game ends immediately, no exceptions."
-      return failRedemption(s, { team, playerIndex });
+      // "Self sink during redemption → game ends immediately. No exceptions."
+      return resolveRedemption(s, other(team), { team, playerIndex });
     }
     if (s.config.selfSink.gameLoss) {
       return endGame(s, other(team), { team, playerIndex });
@@ -162,7 +184,7 @@ function applyThrow(s, ev) {
     // gameLoss OFF → scores for the opposing team instead (sink value).
     addPoints(s, other(team), s.config.sink.points);
     s.teamPointsLog.push({ team: other(team), points: s.config.sink.points, source: 'selfSink' });
-    if (meetsWin(s, other(team))) { s.phase = 'endGameConfirm'; return; }
+    if (triggerWin(s)) return;
     return advanceNormalRound(s, false);
   }
 
@@ -182,8 +204,7 @@ function advanceNormalRound(s, justScored) {
   const team = s.possession;
   const idx = s.round.throwerIndex;
 
-  // Game point: first thrower scores and the win condition is now met
-  // → "Continue with [Player 2]?" (PRD §4 / 7.5).
+  // Game point: P1 scores and the win condition is now met → "Continue with P2?"
   if (idx === 0 && justScored && meetsWin(s, team)) {
     s.pendingContinue = { kind: 'gamePoint' };
     s.phase = 'continuePrompt';
@@ -195,112 +216,157 @@ function advanceNormalRound(s, justScored) {
 }
 
 // ============================================================
-// Redemption
+// Redemption — win-by-two ping-pong shootout
+//
+// The shooting team is always the team trying to overcome a deficit.
+// They shoot until they take the lead (turn flips to the opponent, who
+// must now answer) or fall short. The game ends only when one team
+// leads by 2 AND the trailing team has finished a turn without catching
+// up. Self sink ends it instantly (shooter loses).
 // ============================================================
-function startRedemption(s) {
-  const leading = leaderMeetingWin(s);
-  const team = other(leading);
+function startRedemption(s, leader) {
+  const trailing = other(leader);
   s.inRedemption = true;
-  s.redemption = {
-    team,
-    mode: null,
-    missed: [false, false],       // shootout eliminations
-    pointsByPlayer: [0, 0],
-    missesByPlayer: [0, 0],       // Ice Man
-    succeeded: null,
+  s.redemptionStats = {
+    A: { points: [0, 0], misses: [0, 0] },
+    B: { points: [0, 0], misses: [0, 0] },
   };
-  s.possession = team;
+  s.redemption = {
+    mode: null,                 // 'shootout' | 'pong' — picked once, fixed for the cycle
+    shootingTeam: trailing,
+    originalTrailing: trailing, // who started behind (for "comeback succeeded")
+    turnMissed: [false, false], // shootout: players eliminated for THIS turn
+  };
+  s.possession = trailing;
   s.round = { throwerIndex: 0, throwIds: [] };
   s.phase = 'redemptionModeSelect';
   fx(s, 'redemption');
 }
 
-function resumeNormalPlay(s) {
-  // Trailing team tied/surpassed → normal gameplay resumes, win-by-two on.
-  s.redemption.succeeded = true;
-  s.redemptionResult = { ...s.redemption };
-  s.inRedemption = false;
-  s.redemption = null;
-  s.possession = other(s.possession);
+// Begin a fresh redemption turn for `team`. Fires the striking-distance
+// prompt immediately if they open the turn one point below the opponent.
+function startRedemptionTurn(s, team) {
+  const r = s.redemption;
+  r.shootingTeam = team;
+  r.turnMissed = [false, false];
+  s.possession = team;
   s.round = { throwerIndex: 0, throwIds: [] };
-  s.phase = 'switch';
+  s.phase = 'play';
+  if (r.mode === 'shootout' && s.scores[team] === s.scores[other(team)] - 1) {
+    s.pendingContinue = { kind: 'redemptionStrike' };
+    s.phase = 'continuePrompt';
+  }
 }
 
-function failRedemption(s, selfSinkInfo = null) {
-  s.redemption.succeeded = false;
-  s.redemptionResult = { ...s.redemption };
-  const loser = s.redemption.team;
+// A turn just ended. Decide game-over vs. hand the turn to the opponent.
+function redemptionTurnover(s) {
+  const from = s.redemption.shootingTeam;
+  const to = other(from);
+  s.pendingContinue = null;
+  // The team about to receive the turn already leads by 2+ → the team that
+  // just finished missed out. Game over.
+  if (s.scores[to] - s.scores[from] >= 2) {
+    return resolveRedemption(s, to);
+  }
+  startRedemptionTurn(s, to);
+}
+
+function resolveRedemption(s, winner, selfSinkInfo = null) {
+  const r = s.redemption;
+  s.redemptionResult = {
+    mode: r.mode,
+    winner,
+    loser: other(winner),
+    originalTrailing: r.originalTrailing,
+    succeeded: winner === r.originalTrailing, // the comeback team won
+    stats: structuredClone(s.redemptionStats),
+  };
   s.inRedemption = false;
   s.redemption = null;
-  endGame(s, other(loser), selfSinkInfo);
+  endGame(s, winner, selfSinkInfo);
 }
 
 function advanceRedemption(s, scored) {
+  if (s.redemption.mode === 'pong') return advanceRedemptionPong(s, scored);
+  return advanceRedemptionShootout(s, scored);
+}
+
+function advanceRedemptionShootout(s, scored) {
   const r = s.redemption;
+  const team = r.shootingTeam;
+  const opp = other(team);
+  const idx = s.round.throwerIndex;
+
   if (scored) {
-    if (s.scores[r.team] >= s.scores[other(r.team)]) {
-      // Tied or surpassed. "Continue with [next player]?" applies during
-      // redemption (PRD §5): keep throwing, or bank it and resume play.
-      s.pendingContinue = { kind: 'redemptionReached' };
+    const lead = s.scores[team] - s.scores[opp];
+    if (lead >= 1) return redemptionTurnover(s);   // surpassed → opponent answers
+    if (lead === 0) return;                         // tied → same player keeps shooting
+    if (lead === -1) {                              // striking distance → prompt
+      s.pendingContinue = { kind: 'redemptionStrike' };
       s.phase = 'continuePrompt';
       return;
     }
-    if (r.mode === 'shootout') return;              // score → keep throwing
-    // pong: next player must also score
-    const next = (s.round.throwerIndex + 1) % 2;
-    s.round.throwerIndex = next;
-    if (next === 0) { s.phase = 'dieBack'; fx(s, 'dieBack'); } // all scored → Die Back
-    return;
+    return;                                         // down 2+ → keep shooting
   }
 
-  // Missed
-  r.missesByPlayer[s.round.throwerIndex] += 1;
-  if (r.mode === 'pong') return failRedemption(s);  // one miss ends it
+  // missed (or caught)
+  r.turnMissed[idx] = true;
+  s.redemptionStats[team].misses[idx] += 1;
+  const nextIdx = r.turnMissed.findIndex((m) => !m);
+  if (nextIdx === -1) return redemptionTurnover(s); // both missed → fell short
+  s.pendingContinue = { kind: 'redemptionMiss', nextIdx };
+  s.phase = 'continuePrompt';
+}
 
-  // shootout: eliminate, advance to next un-missed player
-  r.missed[s.round.throwerIndex] = true;
-  const next = r.missed.findIndex((m) => !m);
-  if (next === -1) return failRedemption(s);        // everyone has missed
-  s.round.throwerIndex = next;
+function advanceRedemptionPong(s, scored) {
+  const r = s.redemption;
+  const team = r.shootingTeam;
+  const idx = s.round.throwerIndex;
+
+  if (!scored) {
+    // One miss ends this team's turn immediately — no prompt.
+    s.redemptionStats[team].misses[idx] += 1;
+    return redemptionTurnover(s);
+  }
+  if (idx === 0) { s.round.throwerIndex = 1; return; } // P1 scored → P2 must score
+  // Both scored → Die Back (resolved in person), then re-evaluate the volley.
+  s.phase = 'dieBack';
+  fx(s, 'dieBack');
+}
+
+function pongRoundResolved(s) {
+  const r = s.redemption;
+  const team = r.shootingTeam;
+  if (s.scores[team] > s.scores[other(team)]) return redemptionTurnover(s); // surpassed
+  s.round = { throwerIndex: 0, throwIds: [] };                              // volley again
+  s.phase = 'play';
 }
 
 // ============================================================
-// Defense
+// Defense (FIFA-era; catches are now logged on the throwing screen).
+// The catch path stays functional for completeness / tooling.
 // ============================================================
 function applyDefense(s, ev) {
   const defTeam = other(s.possession);
   s.defenseLog.push({ team: defTeam, playerIndex: ev.playerIndex, kind: ev.kind });
   if (ev.kind !== 'catch') return; // Drop: score stands, stat only.
 
-  // Catch nullifies the most recent live scoring throw of this round.
   const t = roundThrows(s).reverse().find((x) => x.scores && !x.nullified);
   if (!t) return;
   t.nullified = true;
   s.scores[t.team] -= t.points;
-  if (s.inRedemption && t.team === s.redemption?.team) {
-    s.redemption.pointsByPlayer[t.playerIndex] -= t.points;
+  if (s.inRedemption && s.redemptionStats?.[t.team]) {
+    s.redemptionStats[t.team].points[t.playerIndex] -= t.points;
   }
   updateDeficits(s);
 
-  // Roll back anything that score had just triggered.
   if (s.phase === 'continuePrompt' && s.pendingContinue?.kind === 'gamePoint') {
     s.pendingContinue = null;
     s.phase = 'play';
     s.round.throwerIndex = 1; // P1's score was caught; P2 still throws
-  } else if (s.phase === 'continuePrompt' && s.pendingContinue?.kind === 'redemptionReached') {
-    s.pendingContinue = null;
+  } else if (s.phase === 'dieBack' && !s.inRedemption) {
     s.phase = 'play';
-    if (s.redemption?.mode === 'shootout') {
-      // caught throw counts as a miss for that thrower
-      advanceRedemption(s, false);
-    } else if (s.redemption) {
-      return failRedemption(s); // pong: a caught throw is a failed throw
-    }
-  } else if (s.phase === 'dieBack') {
-    s.phase = 'play';
-    finishRound(s); // re-evaluate: now only one scored → switch
-  } else if (s.phase === 'endGameConfirm') {
-    s.phase = leaderMeetingWin(s) ? 'endGameConfirm' : 'switch';
+    finishRound(s);
   }
 }
 
@@ -320,7 +386,7 @@ export function reduce(prev, ev) {
       const defTeam = other(s.possession);
       addPoints(s, defTeam, ev.points);
       s.teamPointsLog.push({ team: defTeam, points: ev.points, source: 'fifa' });
-      if (meetsWin(s, defTeam) && !s.inRedemption) s.phase = 'endGameConfirm';
+      if (!s.inRedemption) triggerWin(s);
       break;
     }
 
@@ -331,18 +397,17 @@ export function reduce(prev, ev) {
       if (rule.points === 'gameOver') { endGame(s, team); break; }
       addPoints(s, team, rule.points);
       s.teamPointsLog.push({ team, points: rule.points, source: rule.name });
-      if (meetsWin(s, team) && team !== s.possession && !s.inRedemption) s.phase = 'endGameConfirm';
+      if (!s.inRedemption) triggerWin(s);
       break;
     }
 
     case 'dieBackAnswer': {
       if (s.phase !== 'dieBack') break;
+      if (s.inRedemption) { pongRoundResolved(s); break; } // pong volley complete
+      if (triggerWin(s)) break;                            // a team won → redemption/end
       if (ev.confirmed) {
         s.round = { throwerIndex: 0, throwIds: [] };
         s.phase = 'play';
-      } else if (s.inRedemption) {
-        if (s.scores[s.redemption.team] >= s.scores[other(s.redemption.team)]) resumeNormalPlay(s);
-        else failRedemption(s);
       } else {
         goToSwitchOrEnd(s);
       }
@@ -353,12 +418,16 @@ export function reduce(prev, ev) {
       if (s.phase !== 'continuePrompt') break;
       const pending = s.pendingContinue;
       s.pendingContinue = null;
-      if (pending?.kind === 'redemptionReached') {
-        if (ev.yes) s.phase = 'play';
-        else resumeNormalPlay(s);
+      if (pending?.kind === 'redemptionStrike') {
+        if (ev.yes) s.phase = 'play';        // current player keeps shooting
+        else redemptionTurnover(s);          // No → immediate turnover
+      } else if (pending?.kind === 'redemptionMiss') {
+        if (ev.yes) { s.round.throwerIndex = pending.nextIdx; s.phase = 'play'; }
+        else redemptionTurnover(s);          // No → turnover
       } else {
-        if (ev.yes) { s.round.throwerIndex = 1; s.phase = 'play'; }
-        else s.phase = 'endGameConfirm'; // → confirm → redemption or win (PRD 7.10)
+        // game point
+        if (ev.yes) { s.round.throwerIndex = 1; s.phase = 'play'; } // P2 throws
+        else if (!triggerWin(s)) s.phase = 'switch';                // No → begin redemption / win
       }
       break;
     }
@@ -367,19 +436,10 @@ export function reduce(prev, ev) {
       if (s.phase === 'switch') confirmSwitch(s);
       break;
 
-    case 'endGameAnswer': {
-      if (s.phase !== 'endGameConfirm') break;
-      if (!ev.confirmed) { s.phase = 'switch'; break; }
-      const winner = leaderMeetingWin(s);
-      if (s.config.redemption && !s.redemptionResult && winner) startRedemption(s);
-      else endGame(s, winner || s.possession);
-      break;
-    }
-
     case 'selectRedemptionMode': {
       if (s.phase !== 'redemptionModeSelect') break;
       s.redemption.mode = ev.mode; // 'shootout' | 'pong'
-      s.phase = 'play';
+      startRedemptionTurn(s, s.redemption.shootingTeam);
       break;
     }
 
@@ -394,7 +454,7 @@ export function reduce(prev, ev) {
   return s;
 }
 
-// Undo last logged action (creator only, PRD 7.9): replay log minus one.
+// Undo last logged action (creator only): replay log minus one.
 export function undoLast(init, log) {
   let s = initialState(init);
   for (const ev of log.slice(0, -1)) s = reduce(s, ev);

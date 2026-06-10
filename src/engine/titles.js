@@ -1,11 +1,23 @@
 // ============================================================
-// Die Up — Player Titles (PRD §9)
-// One title per player. Self sink overrides ALL other logic.
-// Priority order is explicit and tunable — reorder TITLE_ORDER
-// or tweak TITLE_TUNABLES in config.js to re-balance.
+// Die Up — Player Titles (§8, V1 rewrite)
+//
+// Rules:
+//   • MVP            — ALWAYS assigned. One per game, either team.
+//                      Tiebreak: points → hitRate → scoreRate → catchRatio.
+//   • Absolute Ass   — ALWAYS assigned if a player self sinks. Overrides
+//                      every other title for that player.
+//   • Team Carry     — any team, but ALWAYS the opposite team from MVP.
+//                      NOT guaranteed: only if a player genuinely carried
+//                      (teamCarryMinPoints + outscored their teammate).
+//   • Everything else — earned only, no duplicates, never forced. A player
+//                      may finish with no title at all.
+//
+// No two players ever share a title (each name assigned at most once).
 // ============================================================
 import { TITLE_TUNABLES as T } from './config.js';
 import { computeAllStats, comebackCarrier } from './stats.js';
+
+const key = (p) => `${p.team}${p.playerIndex}`;
 
 const cmpMvp = (a, b) =>
   b.pointsContributed - a.pointsContributed ||
@@ -13,8 +25,8 @@ const cmpMvp = (a, b) =>
   b.scoreRate - a.scoreRate ||
   (b.catchRatio ?? -1) - (a.catchRatio ?? -1);
 
-// Per-player conditional titles, checked top-down after the special
-// assignments (Absolute Ass override, MVP, Team Carry, Comeback Kid).
+// Earned titles, checked in priority order. First qualifying, still-untitled
+// player claims each title; a title is awarded at most once per game.
 const TITLE_ORDER = [
   { name: 'Ice Man',
     test: (p) => p.redemptionPoints > 0 && p.redemptionMisses === 0 && p.onWinningTeam },
@@ -31,79 +43,75 @@ const TITLE_ORDER = [
   { name: 'Plumber',
     test: (p) => p.sinkCount >= 1 },
   { name: 'Glue Guy',
-    test: (p) => p.scoreRate >= T.glueGuyMin && p.scoreRate <= T.glueGuyMax },
-  { name: 'The Closer', // "no other title applies" → sits below performance titles
+    test: (p) => p.throwCount > 0 && p.scoreRate >= T.glueGuyMin && p.scoreRate <= T.glueGuyMax },
+  { name: 'The Closer',
     test: (p) => p.scoredGameWinner },
   { name: 'Has Trouble Getting It Up',
     test: (p) => p.heightCount >= T.heightTroubleMin },
   { name: 'Butterfingers',
-    test: (p) => p.drops > p.catches },
+    test: (p) => p.catchRatio !== null && p.drops > p.catches },
   { name: 'Liability',
     test: (p) =>
-      p.hitRate < T.liabilityHitRate &&
+      p.throwCount > 0 && p.hitRate < T.liabilityHitRate &&
       p.catchRatio !== null && 1 - p.catchRatio >= T.liabilityDropRate },
   { name: 'Shit Luck',
-    test: (p) => p.hitRate >= T.shitLuckHitRate && p.scoreRate <= T.shitLuckScoreRate },
+    test: (p) => p.throwCount > 0 && p.hitRate >= T.shitLuckHitRate && p.scoreRate <= T.shitLuckScoreRate },
   { name: 'Clueless',
-    test: (p) => p.hitRate < T.cluelessHitRate && p.missCount >= p.throwCount / 2 },
-  { name: 'One Hit Wonder',
-    test: (p, ctx) => p.pointsContributed > 0 &&
-      p.throwCount > 1 &&
-      ctx.scoringThrowCount(p) === 1 },
-  { name: 'Passenger',
-    test: (p, ctx) => p.pointsContributed > 0 && ctx.teamCarryTeammate(p) },
-  { name: 'Dead Weight',
-    test: (p) => p.pointsContributed < T.deadWeightMaxPoints },
-  { name: 'Ole Reliable', // solid, nothing flashy — also the safety net
-    test: () => true },
+    test: (p) => p.throwCount > 0 && p.hitRate < T.cluelessHitRate && p.missCount >= p.throwCount / 2 },
 ];
 
 export function assignTitles(state) {
   const stats = computeAllStats(state);
-  const titles = {}; // key `${team}${playerIndex}` -> title
-  const key = (p) => `${p.team}${p.playerIndex}`;
+  const titles = {};                 // `${team}${idx}` -> title string
+  const usedNames = new Set();       // enforce "no two players share a title"
 
-  // 1) Self sink overrides everything. Absolute Ass also covers 0 points.
-  for (const p of stats) if (p.selfSink) titles[key(p)] = 'Absolute Ass';
+  const give = (p, name) => {
+    if (!p || titles[key(p)] || usedNames.has(name)) return false;
+    titles[key(p)] = name;
+    usedNames.add(name);
+    return true;
+  };
 
-  // 2) MVP — highest points; tiebreak: hit rate → score rate → catch ratio.
-  const eligible = stats.filter((p) => !titles[key(p)]);
-  const mvp = [...eligible].sort(cmpMvp)[0];
-  if (mvp) titles[key(mvp)] = 'MVP';
+  // 1) Absolute Ass — any self sink. Overrides all other logic for that player.
+  for (const p of stats) {
+    if (p.selfSink) { titles[key(p)] = 'Absolute Ass'; usedNames.add('Absolute Ass'); }
+  }
 
-  // 3) Team Carry — runner-up on the winning team, same team as MVP only.
-  if (mvp && mvp.team === state.winner) {
-    const mate = stats.find((p) => p.team === mvp.team && p.playerIndex !== mvp.playerIndex);
-    if (mate && !titles[key(mate)]) titles[key(mate)] = 'Team Carry';
+  // 2) MVP — always assigned, best player not already locked as Absolute Ass.
+  //    (If literally everyone self-sank, MVP is simply skipped.)
+  const mvpPool = stats.filter((p) => !titles[key(p)]);
+  const mvp = [...mvpPool].sort(cmpMvp)[0] || null;
+  if (mvp) give(mvp, 'MVP');
+
+  // 3) Team Carry — opposite team from MVP, genuine carry only, not guaranteed.
+  if (mvp) {
+    const carryTeam = mvp.team === 'A' ? 'B' : 'A';
+    const candidates = stats
+      .filter((p) => p.team === carryTeam && !titles[key(p)])
+      .filter((p) => p.pointsContributed >= T.teamCarryMinPoints)
+      .sort(cmpMvp);
+    const best = candidates[0];
+    if (best) {
+      const mate = stats.find((p) => p.team === carryTeam && p.playerIndex !== best.playerIndex);
+      // a genuine carry: clearly outproduced the teammate (or teammate did nothing)
+      if (!mate || best.pointsContributed > mate.pointsContributed) give(best, 'Team Carry');
+    }
   }
 
   // 4) Comeback Kid — carried a successful comeback redemption.
   const carrier = comebackCarrier(state, T.comebackCarryMinPoints);
   if (carrier) {
     const p = stats.find((x) => x.team === carrier.team && x.playerIndex === carrier.playerIndex);
-    if (p && !titles[key(p)]) titles[key(p)] = 'Comeback Kid';
+    give(p, 'Comeback Kid');
   }
 
-  // 5) Everything else, in priority order.
-  const ctx = {
-    scoringThrowCount: (p) =>
-      state.throwLog.filter(
-        (t) => t.team === p.team && t.playerIndex === p.playerIndex && t.scores && !t.nullified
-      ).length,
-    teamCarryTeammate: (p) => {
-      const mateKey = `${p.team}${p.playerIndex === 0 ? 1 : 0}`;
-      return titles[mateKey] === 'Team Carry';
-    },
-  };
-  for (const p of stats) {
-    if (titles[key(p)]) continue;
-    if (p.pointsContributed === 0) { titles[key(p)] = 'Absolute Ass'; continue; }
-    if (
-      !TITLE_ORDER.some((t) => {
-        if (t.test(p, ctx)) { titles[key(p)] = t.name; return true; }
-        return false;
-      })
-    ) titles[key(p)] = 'Ole Reliable';
+  // 5) Everything else — earned only, each name once, never forced.
+  for (const def of TITLE_ORDER) {
+    if (usedNames.has(def.name)) continue;
+    const winner = stats
+      .filter((p) => !titles[key(p)])
+      .find((p) => def.test(p));
+    if (winner) give(winner, def.name);
   }
 
   return { titles, stats, mvpKey: mvp ? key(mvp) : null };

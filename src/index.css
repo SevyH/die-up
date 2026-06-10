@@ -8,6 +8,44 @@ html, body { background: #0A1A33; overscroll-behavior: none; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
+/* ---- Hero / 3D text treatment (logo, animations, scoreboard numbers) ---- */
+.font-hero { font-family: "Russo One", "Archivo Black", system-ui, sans-serif; }
+
+/* Layered dark offsets build depth; slight italic skew gives the chunky lean. */
+.text-3d {
+  font-family: "Russo One", "Archivo Black", system-ui, sans-serif;
+  font-style: italic;
+  letter-spacing: .01em;
+  color: #FFD23F;
+  text-shadow:
+    1px 1px 0 #0A1A33,
+    2px 2px 0 #081428,
+    3px 3px 0 #060F1F,
+    4px 4px 0 #040B16,
+    5px 5px 0 #03080F,
+    6px 7px 10px rgba(0,0,0,.55);
+}
+/* Light-faced variant for animation takeovers (white face, deep shadow). */
+.text-3d-light {
+  font-family: "Russo One", "Archivo Black", system-ui, sans-serif;
+  font-style: italic;
+  letter-spacing: .01em;
+  color: #FFFFFF;
+  text-shadow:
+    1px 1px 0 #0A1A33,
+    2px 2px 0 #081428,
+    3px 3px 0 #060F1F,
+    4px 4px 0 #04060F,
+    5px 6px 0 #02040A,
+    6px 9px 14px rgba(0,0,0,.6);
+}
+.text-3d-sm {
+  text-shadow:
+    1px 1px 0 #0A1A33,
+    2px 2px 0 #060F1F,
+    3px 4px 6px rgba(0,0,0,.5);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }

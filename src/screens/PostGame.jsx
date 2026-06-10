@@ -38,7 +38,7 @@ function WinScreen({ s, myTeam, lines, onNext }) {
         <div className={`font-display text-2xl ${won ? 'text-gold' : 'text-white/40'}`}>
           {s.teams[s.winner].name} wins {s.scores[s.winner]}–{s.scores[s.winner === 'A' ? 'B' : 'A']}
         </div>
-        <div className={`font-display text-center leading-tight animate-pop ${won ? 'text-gold text-6xl' : 'text-red-400 text-5xl'}`}>
+        <div className={`text-center leading-tight animate-pop ${won ? 'text-3d text-6xl' : 'text-3d-light text-5xl'}`} style={won ? null : { color: '#FF6A60' }}>
           {won ? lines.winLine : lines.loseLine}
         </div>
         {s.endedBySelfSink && (
@@ -79,7 +79,7 @@ function Podium({ s, stats, titles, mvpKey, onOpen, onNewGame }) {
           <div className="absolute -top-2 -right-2 bg-gold text-navy-deep font-display text-[10px] rounded-full px-2 py-1 rotate-6">MVP</div>
         )}
         <div className="font-display text-white text-lg truncate">{p.name}</div>
-        <div className="font-body text-gold text-xs font-semibold mt-0.5">{titles[k]}</div>
+        {titles[k] && <div className="font-body text-gold text-xs font-semibold mt-0.5">{titles[k]}</div>}
         <div className="flex gap-3 mt-2">
           {heroStats(p).map((h) => (
             <div key={h.label}>
@@ -136,7 +136,7 @@ function StatCard({ p, title, mvp, s, onBack }) {
           <div className="font-body text-gold/70 text-[10px] uppercase tracking-[0.3em]">Die Up · {s.teams[p.team].name}</div>
           <div className="font-display text-4xl text-white mt-1">{p.name}</div>
           <div className="flex items-center gap-2 mt-2">
-            <span className="bg-gold text-navy-deep font-display text-sm rounded-full px-3 py-1">{title}</span>
+            {title && <span className="bg-gold text-navy-deep font-display text-sm rounded-full px-3 py-1">{title}</span>}
             {mvp && <span className="border border-gold text-gold font-display text-sm rounded-full px-3 py-1">MVP</span>}
             {p.onWinningTeam && <span className="text-white/40 font-body text-xs">W {s.scores[p.team]}–{s.scores[p.team === 'A' ? 'B' : 'A']}</span>}
           </div>
@@ -148,6 +148,7 @@ function StatCard({ p, title, mvp, s, onBack }) {
             <StatRow label="Points contributed" value={p.pointsContributed} />
             <StatRow label="Short rate" value={fmtPct(p.shortRate)} />
             <StatRow label="Heights" value={p.heightCount} />
+            <StatRow label="Caught" value={p.caughtCount} />
             <StatRow label="Cups" value={p.cupCount} />
             <StatRow label="Sinks" value={p.sinkCount} />
             <StatRow label="Longest streak" value={p.longestStreak} />

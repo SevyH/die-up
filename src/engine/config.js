@@ -1,7 +1,7 @@
 // ============================================================
 // Die Up — Tunables & Defaults
 // Everything game-balance-related lives here. Change a number,
-// the whole app follows. (PRD: "designed to be easily tunable")
+// the whole app follows. ("designed to be easily tunable")
 // ============================================================
 
 export const DEFAULT_CONFIG = {
@@ -15,32 +15,45 @@ export const DEFAULT_CONFIG = {
 
   // Self sink: consequence only, no point value.
   // gameLoss ON => throwing team loses instantly.
-  // gameLoss OFF => self sink scores for the opposing team instead
-  // (awarded points = sink value; see README "flagged assumptions").
+  // gameLoss OFF => self sink scores for the opposing team instead.
   selfSink: { enabled: true, gameLoss: true },
 
-  // FIFA: toggle only in config. Point value is set in the moment
-  // (default 1) when the FIFA button is tapped mid-game.
+  // FIFA: toggle only in config. Point value set in the moment (default 1).
   fifa: { enabled: true, defaultPoints: 1 },
 
   // House rules: [{ id, name, enabled, points, awardsTo }]
   houseRules: [],
 };
 
-// Base outcomes always present on the throwing screen.
-// points: null means "use config value at runtime".
+// ------------------------------------------------------------
+// Throw outcomes — two-step throwing flow (V1)
+//
+//   Step 1 (what happened):  Hit · Short · Height · Miss · Self Sink
+//   Step 2 (only if "Hit"):  Score(1) · Caught(0) · Dink(2) · Sink(3)
+//
+// "caught": the throw was on target but the defending team caught it.
+// 0 points, no score. Logged by the throwing team directly, so the
+// defending team no longer logs catches separately.
+//
+// points: null means "use the config value at runtime".
+// ------------------------------------------------------------
 export const THROW_OUTCOMES = {
-  score:    { label: 'Score',     points: 1,    hitsTable: true,  scores: true  },
-  cup:      { label: 'Cup/Dink',  points: null, hitsTable: true,  scores: true  },
-  sink:     { label: 'Sink',      points: null, hitsTable: true,  scores: true  },
-  short:    { label: 'Short',     points: 0,    hitsTable: true,  scores: false },
-  height:   { label: 'Height',    points: 0,    hitsTable: false, scores: false },
-  miss:     { label: 'Miss',      points: 0,    hitsTable: false, scores: false },
-  selfSink: { label: 'Self Sink', points: 0,    hitsTable: false, scores: false },
+  // ----- step 2 (a "hit" resolved) -----
+  score:    { label: 'Score',     points: 1,    hitsTable: true,  scores: true,  step: 'hit' },
+  cup:      { label: 'Dink',      points: null, hitsTable: true,  scores: true,  step: 'hit' },
+  sink:     { label: 'Sink',      points: null, hitsTable: true,  scores: true,  step: 'hit' },
+  caught:   { label: 'Caught',    points: 0,    hitsTable: true,  scores: false, step: 'hit' },
+  // ----- step 1 terminals -----
+  short:    { label: 'Short',     points: 0,    hitsTable: true,  scores: false, step: 'top' },
+  height:   { label: 'Height',    points: 0,    hitsTable: false, scores: false, step: 'top' },
+  miss:     { label: 'Miss',      points: 0,    hitsTable: false, scores: false, step: 'top' },
+  selfSink: { label: 'Self Sink', points: 0,    hitsTable: false, scores: false, step: 'top' },
 };
 
-// ---------- Title thresholds (Section 9) ----------
+// ---------- Title thresholds (Section 8) ----------
 export const TITLE_TUNABLES = {
+  mvpMinThrows: 1,
+  teamCarryMinPoints: 3,      // a genuine carry needs real production
   sniperScoreRate: 0.70,
   glueGuyMin: 0.55,
   glueGuyMax: 0.6999,
@@ -49,8 +62,6 @@ export const TITLE_TUNABLES = {
   cupHunterMin: 2,            // "multiple cups"
   heightTroubleMin: 3,
   deadWeightMaxPoints: 2,     // "< 2 points contributed" (exclusive)
-  oleReliableHitRate: 0.60,   // "solid" — tunable judgment calls
-  oleReliableCatchRatio: 0.50,
   shitLuckHitRate: 0.65,      // high hit rate...
   shitLuckScoreRate: 0.35,    // ...but low score rate
   liabilityHitRate: 0.40,     // low hit rate
@@ -61,7 +72,7 @@ export const TITLE_TUNABLES = {
 };
 
 export const WIN_LINES = [
-  // Checked top-down. comeback overrides differential tiers (PRD 7.12).
+  // Checked top-down. comeback overrides differential tiers.
   { id: 'comeback', test: (diff, comeback) => comeback && true, win: 'Comeback W',             lose: 'Choked' },
   { id: 'close',    test: (diff) => diff <= 2,                  win: 'Too close for comfort',  lose: 'Almost had it...' },
   { id: 'solid',    test: (diff) => diff <= 4,                  win: 'Solid win',              lose: 'Better luck next time' },
