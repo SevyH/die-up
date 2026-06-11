@@ -63,6 +63,50 @@ html, body { background: #0A1A33; overscroll-behavior: none; }
   letter-spacing: .02em;
 }
 
+/* ---- 3D button system ---- */
+/* Multi-value box-shadows can't live in Tailwind arbitrary [] — commas break the parser. */
+.btn-3d-base {
+  transition: transform 75ms ease, box-shadow 75ms ease, border-bottom-width 75ms ease;
+}
+.btn-3d-base:active {
+  transition-duration: 50ms;
+  transform: translateY(4px);
+  border-bottom-width: 0 !important;
+}
+.btn-3d-base:disabled {
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.btn-3d-gold {
+  box-shadow: inset 0 1px 0 rgba(255,255,200,0.35), 0 5px 0 #a07800, 0 7px 14px rgba(0,0,0,0.45);
+}
+.btn-3d-gold:active {
+  box-shadow: 0 2px 6px rgba(0,0,0,0.35);
+}
+
+.btn-3d-ghost {
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 5px 0 #0a1628, 0 7px 14px rgba(0,0,0,0.5);
+}
+.btn-3d-ghost:active {
+  box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+}
+
+.btn-3d-danger {
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 5px 0 #7f1d1d, 0 7px 14px rgba(0,0,0,0.5);
+}
+.btn-3d-danger:active {
+  box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+}
+
+.btn-3d-outline {
+  box-shadow: 0 4px 0 rgba(160,120,0,0.6), 0 6px 12px rgba(0,0,0,0.4);
+}
+.btn-3d-outline:active {
+  transform: translateY(3px);
+  box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }

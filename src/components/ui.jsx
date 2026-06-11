@@ -1,49 +1,21 @@
 import { useRef, useEffect } from 'react';
 
 // ---------- Big tap-target button ----------
+// Complex multi-value box-shadows live in index.css as .btn-3d-* classes
+// because Tailwind v3 can't parse commas inside arbitrary [] values.
 export function Btn({ children, onClick, variant = 'gold', className = '', disabled }) {
   const styles = {
-    gold: [
-      'bg-gold text-navy-deep',
-      // top highlight (lighter strip at top edge)
-      'border-t border-t-[#ffe880]',
-      // bottom dark edge + deep drop shadow
-      'border-b-[3px] border-b-[#a07800]',
-      // box shadow: inner top highlight + deep bottom shadow
-      'shadow-[0_1px_0_rgba(255,255,200,0.35)_inset,0_5px_0_#a07800,0_7px_14px_rgba(0,0,0,0.45)]',
-      'active:shadow-[0_0px_0_#a07800,0_2px_6px_rgba(0,0,0,0.35)]',
-      'active:translate-y-[4px] active:border-b-0',
-    ].join(' '),
-    ghost: [
-      'bg-navy-card text-white border border-navy-line',
-      'border-t border-t-[#2a4a72]',
-      'border-b-[3px] border-b-[#0a1628]',
-      'shadow-[0_1px_0_rgba(255,255,255,0.06)_inset,0_5px_0_#0a1628,0_7px_14px_rgba(0,0,0,0.5)]',
-      'active:shadow-[0_0px_0_#0a1628,0_2px_6px_rgba(0,0,0,0.4)]',
-      'active:translate-y-[4px] active:border-b-0',
-    ].join(' '),
-    danger: [
-      'bg-red-500/90 text-white',
-      'border-t border-t-red-400',
-      'border-b-[3px] border-b-red-800',
-      'shadow-[0_1px_0_rgba(255,255,255,0.12)_inset,0_5px_0_#7f1d1d,0_7px_14px_rgba(0,0,0,0.5)]',
-      'active:shadow-[0_0px_0_#7f1d1d,0_2px_6px_rgba(0,0,0,0.4)]',
-      'active:translate-y-[4px] active:border-b-0',
-    ].join(' '),
-    outline: [
-      'bg-transparent text-gold border-2 border-gold',
-      'shadow-[0_4px_0_rgba(160,120,0,0.6),0_6px_12px_rgba(0,0,0,0.4)]',
-      'active:shadow-[0_0px_0_rgba(160,120,0,0.6),0_2px_5px_rgba(0,0,0,0.3)]',
-      'active:translate-y-[3px]',
-    ].join(' '),
+    gold:    'bg-gold text-navy-deep border-t border-t-[#ffe880] border-b-[3px] border-b-[#a07800] btn-3d-gold',
+    ghost:   'bg-navy-card text-white border border-navy-line border-b-[3px] border-b-[#0a1628] btn-3d-ghost',
+    danger:  'bg-red-500/90 text-white border-t border-t-red-400 border-b-[3px] border-b-red-800 btn-3d-danger',
+    outline: 'bg-transparent text-gold border-2 border-gold btn-3d-outline',
   };
   return (
     <button
       disabled={disabled}
       onClick={onClick}
       className={`font-display rounded-2xl px-5 py-4 text-lg tracking-wide select-none
-        transition-[transform,box-shadow] duration-75 active:duration-50
-        disabled:opacity-40 disabled:shadow-none disabled:translate-y-0
+        btn-3d-base disabled:opacity-40
         ${styles[variant]} ${className}`}
     >
       {children}
