@@ -24,7 +24,20 @@ export default {
           '60%': { transform: 'scale(1.08)', opacity: '1' },
           '100%': { transform: 'scale(1)', opacity: '1' },
         },
-        sinkDrop: {
+        sinkDieFall: {
+          '0%':   { transform: 'translateY(-160px) rotate(0deg)', opacity: '1' },
+          '60%':  { transform: 'translateY(100px) rotate(480deg)', opacity: '1' },
+          '72%':  { transform: 'translateY(92px) rotate(500deg)', opacity: '1' },
+          '85%':  { transform: 'translateY(100px) rotate(520deg)', opacity: '1' },
+          '100%': { transform: 'translateY(100px) rotate(520deg)', opacity: '0' },
+        },
+        sinkSplash: {
+          '0%, 58%':  { transform: 'scaleY(0) scaleX(0.3)', opacity: '0', transformOrigin: 'bottom center' },
+          '65%':      { transform: 'scaleY(1.15) scaleX(1.1)', opacity: '1', transformOrigin: 'bottom center' },
+          '80%':      { transform: 'scaleY(1.3) scaleX(1.3)', opacity: '0.7', transformOrigin: 'bottom center' },
+          '100%':     { transform: 'scaleY(1.6) scaleX(1.6)', opacity: '0', transformOrigin: 'bottom center' },
+        },
+
           '0%': { transform: 'translateY(-140px) rotate(0deg)', opacity: '1' },
           '70%': { transform: 'translateY(0) rotate(540deg)', opacity: '1' },
           '80%': { transform: 'translateY(-14px) rotate(560deg)' },

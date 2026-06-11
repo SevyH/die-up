@@ -137,39 +137,104 @@ export function FxOverlay({ fx, localDieUp }) {
   }
 }
 
-// Die drops into a red solo cup; liquid splashes out on impact; "Sink!" 3D text.
+// Die drops into a red solo cup from above; liquid splashes upward; "SINK!" 3D text.
 function SinkAnim() {
   return (
     <div className="relative flex flex-col items-center">
-      <div className="relative h-40 w-32 flex items-end justify-center">
-        {/* falling die */}
-        <div className="absolute left-1/2 -translate-x-1/2 animate-sinkDrop text-5xl drop-shadow-[0_6px_8px_rgba(0,0,0,.5)]">
+      {/* Scene container — cup at bottom, die falls into it from top */}
+      <div className="relative" style={{ width: 120, height: 220 }}>
+
+        {/* ── Falling die ── drops from top of screen down into the cup opening */}
+        <div
+          className="absolute left-1/2 -translate-x-1/2 text-5xl select-none"
+          style={{
+            animation: 'sinkDieFall 0.65s cubic-bezier(.55,0,.8,.7) forwards',
+            top: 0,
+            filter: 'drop-shadow(0 8px 12px rgba(0,0,0,0.6))',
+            zIndex: 10,
+          }}
+        >
           🎲
         </div>
-        {/* splash droplets */}
-        <div className="absolute left-1/2 top-16 -translate-x-1/2 animate-liquidSplash">
-          <div className="relative w-24 h-10">
-            <span className="absolute left-1 top-3 w-2.5 h-2.5 rounded-full bg-amber-300/90" />
-            <span className="absolute left-6 top-0 w-2 h-2 rounded-full bg-amber-200/90" />
-            <span className="absolute right-6 top-0 w-2 h-2 rounded-full bg-amber-200/90" />
-            <span className="absolute right-1 top-3 w-2.5 h-2.5 rounded-full bg-amber-300/90" />
-            <span className="absolute left-1/2 -top-1 -translate-x-1/2 w-2 h-2 rounded-full bg-amber-100" />
+
+        {/* ── Water splash — erupts upward from the cup opening on impact ── */}
+        <div
+          className="absolute left-1/2 -translate-x-1/2"
+          style={{ bottom: 102, zIndex: 20, animation: 'sinkSplash 0.9s ease-out forwards' }}
+        >
+          {/* Central tall jet */}
+          <div style={{ position: 'relative', width: 100, height: 60 }}>
+            <span style={{ position:'absolute', left:'50%', top:0, transform:'translateX(-50%)', width:6, height:28, borderRadius:3, background:'rgba(180,220,255,0.92)' }} />
+            {/* Left arcing droplets */}
+            <span style={{ position:'absolute', left:'30%', top:8, width:10, height:10, borderRadius:'50%', background:'rgba(160,210,255,0.88)' }} />
+            <span style={{ position:'absolute', left:'14%', top:18, width:7, height:7, borderRadius:'50%', background:'rgba(180,225,255,0.80)' }} />
+            <span style={{ position:'absolute', left:'4%', top:30, width:5, height:5, borderRadius:'50%', background:'rgba(160,200,255,0.70)' }} />
+            {/* Right arcing droplets */}
+            <span style={{ position:'absolute', right:'30%', top:8, width:10, height:10, borderRadius:'50%', background:'rgba(160,210,255,0.88)' }} />
+            <span style={{ position:'absolute', right:'14%', top:18, width:7, height:7, borderRadius:'50%', background:'rgba(180,225,255,0.80)' }} />
+            <span style={{ position:'absolute', right:'4%', top:30, width:5, height:5, borderRadius:'50%', background:'rgba(160,200,255,0.70)' }} />
+            {/* Tiny center mist drops */}
+            <span style={{ position:'absolute', left:'40%', top:4, width:5, height:5, borderRadius:'50%', background:'rgba(200,235,255,0.75)' }} />
+            <span style={{ position:'absolute', right:'40%', top:4, width:5, height:5, borderRadius:'50%', background:'rgba(200,235,255,0.75)' }} />
           </div>
         </div>
-        {/* red solo cup */}
-        <div className="animate-cupShake relative">
-          <div
-            className="w-20 h-24"
-            style={{
-              background: 'linear-gradient(180deg,#ef4444 0%,#dc2626 55%,#b91c1c 100%)',
-              clipPath: 'polygon(12% 0,88% 0,78% 100%,22% 100%)',
-              borderRadius: '4px',
-            }}
-          />
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[4.6rem] h-3 rounded-[50%] bg-red-300/90" />
-          <div className="absolute top-1 left-1/2 -translate-x-1/2 w-16 h-2 rounded-[50%] bg-[#7a1414]" />
+
+        {/* ── Red solo cup ── sits at the bottom center ── */}
+        <div
+          className="absolute left-1/2 -translate-x-1/2"
+          style={{ bottom: 0, animation: 'cupShake 1.5s ease-in-out forwards', zIndex: 5 }}
+        >
+          {/* White rim — the iconic edge at the very top of a solo cup */}
+          <div style={{
+            width: 90,
+            height: 14,
+            background: 'linear-gradient(180deg, #ffffff 0%, #e8e8e8 60%, #cccccc 100%)',
+            borderRadius: '50% 50% 0 0 / 7px 7px 0 0',
+            boxShadow: '0 -1px 4px rgba(0,0,0,0.25), inset 0 -2px 4px rgba(0,0,0,0.15)',
+            position: 'relative',
+            zIndex: 3,
+          }} />
+          {/* Cup body — classic solo cup trapezoid */}
+          <div style={{
+            width: 90,
+            height: 110,
+            background: 'linear-gradient(160deg, #ff4f4f 0%, #e82222 35%, #c41a1a 70%, #9b1010 100%)',
+            clipPath: 'polygon(8% 0%, 92% 0%, 82% 100%, 18% 100%)',
+            position: 'relative',
+            zIndex: 2,
+            marginTop: -1,
+          }}>
+            {/* Horizontal stripe lines — the signature solo cup ribbing */}
+            {[18, 34, 50, 66, 82].map((pct, i) => (
+              <div key={i} style={{
+                position: 'absolute',
+                top: `${pct}%`,
+                left: '6%',
+                right: '6%',
+                height: 2,
+                background: 'rgba(0,0,0,0.18)',
+                borderRadius: 1,
+              }} />
+            ))}
+            {/* Subtle highlight on left side */}
+            <div style={{
+              position: 'absolute', top: 0, left: '10%', width: '15%', height: '100%',
+              background: 'linear-gradient(90deg, rgba(255,255,255,0.18) 0%, transparent 100%)',
+            }} />
+          </div>
+          {/* Cup bottom */}
+          <div style={{
+            width: 54,
+            height: 8,
+            background: 'linear-gradient(180deg, #7a0e0e 0%, #5a0a0a 100%)',
+            borderRadius: '0 0 4px 4px',
+            margin: '0 auto',
+            zIndex: 2,
+          }} />
         </div>
       </div>
+
+      {/* SINK! text punches in below */}
       <div className="text-3d-light text-6xl sm:text-7xl mt-3 animate-heroSlam leading-none">SINK!</div>
     </div>
   );

@@ -13,7 +13,7 @@ export function Home() {
       <div className="flex-1 flex flex-col items-center justify-center gap-1">
         <div className="text-3d text-8xl leading-[0.82]">DIE</div>
         <div className="text-3d-light text-8xl leading-[0.82]">UP</div>
-        <div className="font-body text-white/45 mt-5 text-sm tracking-wide">beer die, tracked live</div>
+        <div className="font-body text-white/50 mt-5 text-[13px] tracking-[0.22em] uppercase font-semibold">huck responsibly</div>
       </div>
       <div className="pb-5 px-6 flex flex-col gap-3">
         {asking ? (
