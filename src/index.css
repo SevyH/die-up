@@ -2,126 +2,269 @@
 @tailwind components;
 @tailwind utilities;
 
-html, body { background: #0A1A33; overscroll-behavior: none; }
+/* ── CSS custom properties ── */
+:root {
+  --navy:       #0B1929;
+  --navy-deep:  #060E1A;
+  --navy-card:  #0F2035;
+  --navy-line:  #1A3352;
+  --gold:       #F7C948;
+  --gold-dim:   #B8922A;
+  --gold-light: #FFE280;
+  --cream:      #F0EDE6;
+  --hot:        #E8323C;
+}
+
+html, body {
+  background: var(--navy-deep);
+  overscroll-behavior: none;
+}
+
 * { -webkit-tap-highlight-color: transparent; }
 
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-/* ---- Hero / 3D text treatment (logo, animations, scoreboard numbers) ---- */
-.font-hero { font-family: "Russo One", "Archivo Black", system-ui, sans-serif; }
+/* ── Noise/grain texture overlay ── */
+.grain::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 999;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-size: 128px 128px;
+}
 
-/* Layered dark offsets build depth; slight italic skew gives the chunky lean. */
+/* ── Display / 3D text system ── */
+/* Primary display — yellow, massive, raised */
 .text-3d {
-  font-family: "Russo One", "Archivo Black", system-ui, sans-serif;
+  font-family: 'Bebas Neue', system-ui, sans-serif;
   font-style: italic;
-  letter-spacing: .01em;
-  color: #FFD23F;
+  letter-spacing: 0.02em;
+  color: var(--gold);
   text-shadow:
-    1px 1px 0 #0A1A33,
-    2px 2px 0 #081428,
-    3px 3px 0 #060F1F,
-    4px 4px 0 #040B16,
-    5px 5px 0 #03080F,
-    6px 7px 10px rgba(0,0,0,.55);
+    1px 1px 0 #0a1525,
+    2px 2px 0 #081220,
+    3px 3px 0 #060e1a,
+    4px 4px 0 #040b14,
+    5px 5px 0 #03070e,
+    6px 8px 18px rgba(0,0,0,0.65);
 }
-/* Light-faced variant for animation takeovers (white face, deep shadow). */
+
+/* Light display — cream/white, for overlays */
 .text-3d-light {
-  font-family: "Russo One", "Archivo Black", system-ui, sans-serif;
+  font-family: 'Bebas Neue', system-ui, sans-serif;
   font-style: italic;
-  letter-spacing: .01em;
-  color: #FFFFFF;
+  letter-spacing: 0.02em;
+  color: var(--cream);
   text-shadow:
-    1px 1px 0 #0A1A33,
-    2px 2px 0 #081428,
-    3px 3px 0 #060F1F,
-    4px 4px 0 #04060F,
-    5px 6px 0 #02040A,
-    6px 9px 14px rgba(0,0,0,.6);
+    1px 1px 0 #0a1525,
+    2px 2px 0 #081220,
+    3px 3px 0 #060e1a,
+    4px 4px 0 #04090f,
+    5px 6px 0 #03060b,
+    6px 10px 20px rgba(0,0,0,0.7);
 }
+
+/* Smaller depth — for labels/sub-elements */
 .text-3d-sm {
   text-shadow:
-    1px 1px 0 #0A1A33,
-    2px 2px 0 #060F1F,
-    3px 4px 6px rgba(0,0,0,.5);
+    1px 1px 0 #060e1a,
+    2px 2px 0 #040b14,
+    3px 5px 10px rgba(0,0,0,0.55);
 }
 
-/* ---- Outcome button label 3D treatment (Score / Caught / Dink / Sink) ---- */
-/* Dark-navy drop shadow gives the label a punchy embossed look on gold/ghost buttons. */
+/* Red variant for redemption/danger moments */
+.text-3d-red {
+  font-family: 'Bebas Neue', system-ui, sans-serif;
+  font-style: italic;
+  letter-spacing: 0.02em;
+  color: var(--hot);
+  text-shadow:
+    1px 1px 0 #2a0608,
+    2px 2px 0 #1c0404,
+    3px 3px 0 #120303,
+    4px 5px 0 #0a0202,
+    5px 8px 20px rgba(0,0,0,0.65);
+}
+
+/* Button label depth */
 .btn-label-3d {
   text-shadow:
-    0 1px 0 rgba(4, 11, 22, 0.55),
-    0 2px 0 rgba(4, 11, 22, 0.35),
-    0 4px 8px rgba(0, 0, 0, 0.30);
-  letter-spacing: .02em;
+    0 1px 0 rgba(4,11,22,0.5),
+    0 2px 0 rgba(4,11,22,0.3),
+    0 4px 10px rgba(0,0,0,0.28);
+  letter-spacing: 0.03em;
 }
-/* Variant for gold buttons — deeper shadow since text is dark-on-gold */
 .btn-label-3d-dark {
   text-shadow:
-    0 1px 0 rgba(255, 210, 63, 0.20),
-    0 2px 4px rgba(0, 0, 0, 0.22);
-  letter-spacing: .02em;
+    0 1px 0 rgba(180,140,0,0.3),
+    0 2px 6px rgba(0,0,0,0.25);
+  letter-spacing: 0.03em;
 }
 
-/* ---- 3D button system ---- */
-/* Multi-value box-shadows can't live in Tailwind arbitrary [] — commas break the parser. */
+/* ── 3D button system ── */
+/* All complex box-shadow values MUST be here — Tailwind can't parse commas in arbitrary [] */
+
 .btn-3d-base {
-  transition: transform 75ms ease, box-shadow 75ms ease, border-bottom-width 75ms ease;
+  transition: transform 70ms ease, box-shadow 70ms ease;
 }
 .btn-3d-base:active {
-  transition-duration: 50ms;
-  transform: translateY(4px);
-  border-bottom-width: 0 !important;
+  transition-duration: 45ms;
+  transform: translateY(4px) !important;
 }
 .btn-3d-base:disabled {
   transform: none !important;
   box-shadow: none !important;
 }
 
+/* Gold primary button */
 .btn-3d-gold {
-  box-shadow: inset 0 1px 0 rgba(255,255,200,0.35), 0 5px 0 #a07800, 0 7px 14px rgba(0,0,0,0.45);
+  box-shadow:
+    inset 0 1px 0 rgba(255,240,160,0.4),
+    inset 0 -1px 0 rgba(0,0,0,0.15),
+    0 5px 0 #8a6800,
+    0 8px 20px rgba(0,0,0,0.5);
 }
 .btn-3d-gold:active {
-  box-shadow: 0 2px 6px rgba(0,0,0,0.35);
+  box-shadow:
+    inset 0 1px 0 rgba(255,240,160,0.3),
+    0 1px 0 #8a6800,
+    0 3px 8px rgba(0,0,0,0.4);
 }
 
+/* Ghost/dark button */
 .btn-3d-ghost {
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 5px 0 #0a1628, 0 7px 14px rgba(0,0,0,0.5);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.07),
+    0 5px 0 #060e1a,
+    0 8px 20px rgba(0,0,0,0.55);
 }
 .btn-3d-ghost:active {
-  box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.05),
+    0 1px 0 #060e1a,
+    0 3px 8px rgba(0,0,0,0.45);
 }
 
+/* Danger/red button */
 .btn-3d-danger {
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 5px 0 #7f1d1d, 0 7px 14px rgba(0,0,0,0.5);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.15),
+    0 5px 0 #7a0e14,
+    0 8px 20px rgba(0,0,0,0.55);
 }
 .btn-3d-danger:active {
-  box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.1),
+    0 1px 0 #7a0e14,
+    0 3px 8px rgba(0,0,0,0.45);
 }
 
+/* Outline/ghost with gold border */
 .btn-3d-outline {
-  box-shadow: 0 4px 0 rgba(160,120,0,0.6), 0 6px 12px rgba(0,0,0,0.4);
+  box-shadow:
+    0 4px 0 rgba(140,100,0,0.6),
+    0 7px 16px rgba(0,0,0,0.4);
 }
 .btn-3d-outline:active {
-  transform: translateY(3px);
-  box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+  box-shadow:
+    0 1px 0 rgba(140,100,0,0.5),
+    0 3px 8px rgba(0,0,0,0.35);
+}
+
+/* Card glows */
+.card-glow-gold {
+  box-shadow:
+    0 0 0 1px rgba(247,201,72,0.25),
+    0 4px 24px rgba(0,0,0,0.35);
+}
+.card-glow-active {
+  box-shadow:
+    0 0 0 2px rgba(247,201,72,0.7),
+    0 0 24px rgba(247,201,72,0.2),
+    0 4px 24px rgba(0,0,0,0.4);
+}
+.card-glow-red {
+  box-shadow:
+    0 0 0 2px rgba(232,50,60,0.6),
+    0 0 30px rgba(232,50,60,0.2),
+    0 4px 24px rgba(0,0,0,0.4);
+}
+
+/* Scoreboard number glow */
+.score-glow-gold {
+  filter: drop-shadow(0 0 12px rgba(247,201,72,0.4));
+}
+.score-glow-dim {
+  filter: drop-shadow(0 2px 6px rgba(0,0,0,0.4));
+}
+
+/* Toggle */
+.toggle-track-on {
+  background: var(--gold);
+  box-shadow: 0 0 12px rgba(247,201,72,0.35);
+}
+.toggle-track-off {
+  background: var(--navy-line);
+}
+
+/* Ambient glow blobs on home screen */
+.glow-blob-1 {
+  background: radial-gradient(ellipse, rgba(247,201,72,0.12) 0%, transparent 65%);
+  animation: drift 14s ease-in-out infinite;
+}
+.glow-blob-2 {
+  background: radial-gradient(ellipse, rgba(232,50,60,0.08) 0%, transparent 65%);
+  animation: drift 18s ease-in-out infinite reverse;
+  animation-delay: -6s;
+}
+
+/* Sink animation keyframes */
+@keyframes sinkDieFall {
+  0%   { transform: translateY(-180px) rotate(0deg);   opacity: 1; }
+  58%  { transform: translateY(90px)  rotate(520deg);  opacity: 1; }
+  70%  { transform: translateY(82px)  rotate(540deg);  opacity: 1; }
+  82%  { transform: translateY(90px)  rotate(560deg);  opacity: 1; }
+  100% { transform: translateY(90px)  rotate(560deg);  opacity: 0; }
+}
+@keyframes sinkSplash {
+  0%, 55% { transform: scaleY(0)   scaleX(0.2); opacity: 0; }
+  63%     { transform: scaleY(1.2) scaleX(1.15); opacity: 1; }
+  78%     { transform: scaleY(1.4) scaleX(1.4);  opacity: 0.7; }
+  100%    { transform: scaleY(1.7) scaleX(1.7);  opacity: 0; }
+}
+
+/* Screen slide transitions */
+.screen-enter {
+  animation: slideRight .22s ease-out forwards;
+}
+
+/* Podium elevation */
+.podium-winner {
+  box-shadow:
+    0 0 0 2px rgba(247,201,72,0.5),
+    0 0 40px rgba(247,201,72,0.12),
+    0 8px 32px rgba(0,0,0,0.5);
+}
+.podium-loser {
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,0.06),
+    0 4px 16px rgba(0,0,0,0.4);
+}
+
+/* MVP badge glow */
+.mvp-badge {
+  box-shadow:
+    0 0 0 1px rgba(247,201,72,0.8),
+    0 0 16px rgba(247,201,72,0.45);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
-}
-
-/* ---- Sink animation keyframes (used via inline style in SinkAnim) ---- */
-@keyframes sinkDieFall {
-  0%   { transform: translateY(-160px) rotate(0deg);   opacity: 1; }
-  60%  { transform: translateY(100px)  rotate(480deg); opacity: 1; }
-  72%  { transform: translateY(92px)   rotate(500deg); opacity: 1; }
-  85%  { transform: translateY(100px)  rotate(520deg); opacity: 1; }
-  100% { transform: translateY(100px)  rotate(520deg); opacity: 0; }
-}
-@keyframes sinkSplash {
-  0%, 58% { transform: scaleY(0)    scaleX(0.3); opacity: 0;   }
-  65%      { transform: scaleY(1.15) scaleX(1.1); opacity: 1;   }
-  80%      { transform: scaleY(1.3)  scaleX(1.3); opacity: 0.7; }
-  100%     { transform: scaleY(1.6)  scaleX(1.6); opacity: 0;   }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
