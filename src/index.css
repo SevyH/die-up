@@ -46,6 +46,23 @@ html, body { background: #0A1A33; overscroll-behavior: none; }
     3px 4px 6px rgba(0,0,0,.5);
 }
 
+/* ---- Outcome button label 3D treatment (Score / Caught / Dink / Sink) ---- */
+/* Dark-navy drop shadow gives the label a punchy embossed look on gold/ghost buttons. */
+.btn-label-3d {
+  text-shadow:
+    0 1px 0 rgba(4, 11, 22, 0.55),
+    0 2px 0 rgba(4, 11, 22, 0.35),
+    0 4px 8px rgba(0, 0, 0, 0.30);
+  letter-spacing: .02em;
+}
+/* Variant for gold buttons — deeper shadow since text is dark-on-gold */
+.btn-label-3d-dark {
+  text-shadow:
+    0 1px 0 rgba(255, 210, 63, 0.20),
+    0 2px 4px rgba(0, 0, 0, 0.22);
+  letter-spacing: .02em;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }

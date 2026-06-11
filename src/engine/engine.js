@@ -196,6 +196,12 @@ function applyThrow(s, ev) {
     if (key === 'sink') fx(s, 'sink', { team, playerIndex });
   }
 
+  // Log the catch to the individual defender when catcherIndex is provided.
+  if (key === 'caught' && ev.catcherIndex != null) {
+    const defTeam = other(team);
+    s.defenseLog.push({ team: defTeam, playerIndex: ev.catcherIndex, kind: 'catch' });
+  }
+
   if (s.inRedemption) return advanceRedemption(s, scores);
   return advanceNormalRound(s, scores);
 }

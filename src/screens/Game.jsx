@@ -67,15 +67,20 @@ function RedemptionBanner({ s }) {
 // ---------------- Throwing Screen — two-step ----------------
 function ThrowingScreen({ onDieUp }) {
   const { gameState: s, dispatch } = useGame();
-  const [step, setStep] = useState(null); // null = pick player, 'top' = step1, 'hit' = step2
+  const [step, setStep] = useState(null); // null = pick player, 'top' = step1, 'hit' = step2, 'caught' = step3
   const team = s.possession;
   const players = s.teams[team].players;
+  const defTeam = team === 'A' ? 'B' : 'A';
+  const defPlayers = s.teams[defTeam].players;
   const idx = s.round.throwerIndex;
   const cfg = s.config;
 
   const throwingHouseRules = (cfg.houseRules || []).filter((r) => r.enabled && r.awardsTo === 'throwing');
 
-  const logThrow = (outcome) => { setStep(null); dispatch({ type: 'throw', outcome }); };
+  const logThrow = (outcome, opts = {}) => {
+    setStep(null);
+    dispatch({ type: 'throw', outcome, ...opts });
+  };
 
   const eliminated = (i) =>
     s.inRedemption && s.redemption?.mode === 'shootout' && s.redemption.turnMissed?.[i];
@@ -122,22 +127,22 @@ function ThrowingScreen({ onDieUp }) {
           <div className="animate-pop">
             <div className="grid grid-cols-2 gap-2">
               <Btn variant="gold" className="text-xl py-5" onClick={() => logThrow('score')}>
-                Score
+                <span className="btn-label-3d-dark">Score</span>
                 <div className="text-[11px] font-body font-semibold opacity-70 mt-0.5">+1</div>
               </Btn>
-              <Btn variant="ghost" className="text-xl py-5" onClick={() => logThrow('caught')}>
-                Caught
+              <Btn variant="ghost" className="text-xl py-5" onClick={() => setStep('caught')}>
+                <span className="btn-label-3d">Caught</span>
                 <div className="text-[11px] font-body font-semibold opacity-70 mt-0.5">nullified · 0</div>
               </Btn>
               {cfg.cup.enabled && (
                 <Btn variant="gold" className="text-xl py-5" onClick={() => logThrow('cup')}>
-                  Dink
+                  <span className="btn-label-3d-dark">Dink</span>
                   <div className="text-[11px] font-body font-semibold opacity-70 mt-0.5">+{cfg.cup.points}</div>
                 </Btn>
               )}
               {cfg.sink.enabled && (
                 <Btn variant="gold" className="text-xl py-5" onClick={() => logThrow('sink')}>
-                  Sink
+                  <span className="btn-label-3d-dark">Sink</span>
                   <div className="text-[11px] font-body font-semibold opacity-70 mt-0.5">+{cfg.sink.points}</div>
                 </Btn>
               )}
@@ -154,6 +159,32 @@ function ThrowingScreen({ onDieUp }) {
             )}
             <button
               onClick={() => setStep('top')}
+              className="w-full mt-2 py-3 text-white/45 font-body text-sm active:text-white"
+            >
+              ← back
+            </button>
+          </div>
+        )}
+
+        {step === 'caught' && (
+          <div className="animate-pop">
+            <div className="text-center text-white/60 font-body text-sm mb-3 tracking-wide uppercase">
+              Who caught it?
+            </div>
+            <div className="flex flex-col gap-2">
+              {defPlayers.map((p, i) => (
+                <Btn
+                  key={i}
+                  variant="ghost"
+                  className="text-xl py-5"
+                  onClick={() => logThrow('caught', { catcherIndex: i })}
+                >
+                  {p || `Player ${i + 1}`}
+                </Btn>
+              ))}
+            </div>
+            <button
+              onClick={() => setStep('hit')}
               className="w-full mt-2 py-3 text-white/45 font-body text-sm active:text-white"
             >
               ← back
@@ -178,7 +209,19 @@ function DefendingScreen() {
   const players = s.teams[team].players;
   const [fifaOpen, setFifaOpen] = useState(false);
   const [fifaPts, setFifaPts] = useState(s.config.fifa.defaultPoints);
+  const [dropFlash, setDropFlash] = useState({}); // { [playerIndex]: bool } brief flash feedback
   const defendingHouseRules = (s.config.houseRules || []).filter((r) => r.enabled && r.awardsTo === 'defending');
+
+  // Count drops logged so far this game for each defender on this team.
+  const dropCounts = players.map((_, i) =>
+    s.defenseLog.filter((d) => d.team === team && d.playerIndex === i && d.kind === 'drop').length
+  );
+
+  const logDrop = (i) => {
+    dispatch({ type: 'defense', playerIndex: i, kind: 'drop' });
+    setDropFlash((prev) => ({ ...prev, [i]: true }));
+    setTimeout(() => setDropFlash((prev) => ({ ...prev, [i]: false })), 600);
+  };
 
   return (
     <>
@@ -188,12 +231,28 @@ function DefendingScreen() {
       </div>
       <div className="flex-1 flex flex-col justify-center gap-3 px-5">
         {players.map((p, i) => (
-          <div key={i} className="w-full rounded-3xl px-4 py-6 text-center font-display text-2xl bg-navy-card text-white/80 border border-navy-line">
-            {p || '—'}
-          </div>
+          <button
+            key={i}
+            onClick={() => logDrop(i)}
+            className={`w-full rounded-3xl px-4 py-6 text-center font-display text-2xl
+              bg-navy-card border border-navy-line transition-all select-none
+              ${dropFlash[i] ? 'bg-red-500/20 border-red-400/50' : 'text-white/80 active:bg-navy-line'}`}
+          >
+            <span className={dropFlash[i] ? 'text-red-300' : ''}>{p || '—'}</span>
+            {dropCounts[i] > 0 && (
+              <div className="text-[11px] font-body font-semibold mt-1 text-red-400/80 tracking-wide">
+                {dropCounts[i]} drop{dropCounts[i] !== 1 ? 's' : ''}
+              </div>
+            )}
+            {dropCounts[i] === 0 && (
+              <div className="text-[10px] font-body mt-1 text-white/20 tracking-wide">
+                tap to log drop
+              </div>
+            )}
+          </button>
         ))}
         <p className="text-center text-white/30 font-body text-xs px-6">
-          Catches are now logged by the throwing team. This side handles FIFA and defending house rules only.
+          Catches are logged by the throwing team. Tap your name above to log a drop — optional.
         </p>
       </div>
       <div className="px-4 pb-8 flex flex-col gap-2">
